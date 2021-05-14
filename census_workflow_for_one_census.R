@@ -1,4 +1,4 @@
-
+# pj proposed changes and questions 5/9/21 See comments with PJ:
         
 census_workflow_for_one_census <- function(dd_census_extract,
                                            census_reference_date,
@@ -309,7 +309,7 @@ census_workflow_for_one_census <- function(dd_census_extract,
           Age <- 1:length(popM_BP1)-1
           BP1_higher <- popM_BP1 > pop_working$popM & popF_BP1 > pop_working$popF
           minLastBPage1 <- min(Age[!BP1_higher],10) - 1
-          
+          # PJ: IF minLastBPage1 < 0 then skip the rest???? *********************************************************************
           # get the unsmoothed series and graduate to single age if necessary
           if (use_series == "single") {
             popM_unsmoothed <- pop_unsmoothed$DataValue[pop_unsmoothed$SexID ==1]
@@ -330,6 +330,7 @@ census_workflow_for_one_census <- function(dd_census_extract,
           popF_BP2 <- c(popF_BP1[Age <= minLastBPage1], popF_unsmoothed[Age > minLastBPage1 & Age < 15], pop_working$popF[pop_working$Age >= 15]) 
           
           # if we are smoothing, then smooth BP2 using the best method from child smoothing before
+          # PJ: also check if mavN=1 which means not smoothed? *********************************************************
           if (adjust_smooth) {
             
             adj_method <- pop_smooth_child$best_smooth_method
@@ -349,21 +350,31 @@ census_workflow_for_one_census <- function(dd_census_extract,
               bestGrad5 <- as.numeric(substr(adj_method, nchar(adj_method), nchar(adj_method)))
               
               if (bestGrad5 == 1) {
+                # PJ: is this necessary or can we just transfer BP2 to BP3??? ************************************************
                 popM_BP3 <- DemoTools::graduate_mono(popM5_BP2, AgeInt = DemoTools::age2int(Age5), Age = Age5, OAG = TRUE)
                 popF_BP3 <- DemoTools::graduate_mono(popF5_BP2, AgeInt = DemoTools::age2int(Age5), Age = Age5, OAG = TRUE)
               }
               if (bestGrad5 == 2) {
                 popM5_BP2_mav2 <- DemoTools::smooth_age_5(popM5_BP2, Age5, method = "MAV", n = 2)
                 popF5_BP2_mav2 <- DemoTools::smooth_age_5(popF5_BP2, Age5, method = "MAV", n = 2)
-                popM_BP3 <- DemoTools::graduate_mono(popM5_BP2_mav2, AgeInt = DemoTools::age2int(Age5), Age = Age5, OAG = TRUE)
-                popF_BP3 <- DemoTools::graduate_mono(popF5_BP2_mav2, AgeInt = DemoTools::age2int(Age5), Age = Age5, OAG = TRUE)
+                #PJ: should we fix BP2 to include BP1 for age 0 and readjust 1-4 to keep 0-4 total?  **************************
+                popMabr_BP2_mav2 <- c(popM_BP1[1], popM5_BP2_mav2[1]-popM_BP1[1], popM5_BP2_mav2[2:length(popM5_BP2_mav2)])
+                popFabr_BP2_mav2 <- c(popF_BP1[1], popF5_BP2_mav2[1]-popF_BP1[1], popF5_BP2_mav2[2:length(popF5_BP2_mav2)])
+                
+                
+                #PJ: then use abridged ages to graduate 0, 1-4, 5-9 ... *******************************************************
+                popM_BP3 <- DemoTools::graduate_mono(popMabr_BP2_mav2, AgeInt = DemoTools::age2int(Age_abr), Age = Age_abr, OAG = TRUE)
+                popF_BP3 <- DemoTools::graduate_mono(popFabr_BP2_mav2, AgeInt = DemoTools::age2int(Age_abr), Age = Age_abr, OAG = TRUE)
+                
+                # popM_BP3 <- DemoTools::graduate_mono(popM5_BP2_mav2, AgeInt = DemoTools::age2int(Age5), Age = Age5, OAG = TRUE)
+                # popF_BP3 <- DemoTools::graduate_mono(popF5_BP2_mav2, AgeInt = DemoTools::age2int(Age5), Age = Age5, OAG = TRUE)
               }
               
             }
             popM_BP3 <- c(popM_BP3[Age < 15], pop_working$popM[Age >=15])
             popF_BP3 <- c(popF_BP3[Age < 15], pop_working$popF[Age >=15])
             
-          } else { # if no smoothing then BP3 = BP2
+          } else { # if no smoothing then BP3 = BP2   PJ:See above if Grad5mav1 could be done here?? ***************************
             popM_BP3 <- popM_BP2
             popF_BP3 <- popF_BP2
             
